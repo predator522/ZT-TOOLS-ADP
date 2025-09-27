@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZT Tools Admin Panel</title>
+<style>
+    body {
+        font-family: 'Poppins', sans-serif;
+        background: #000 url('https://i.ibb.co/791tz0h/IMG-20250925-WA0413.jpg') no-repeat center center fixed;
+        background-size: cover;
+        color: #e0e0e0;
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    header {
+        width: 100%;
+        padding: 15px;
+        background: rgba(0,0,0,0.85);
+        text-align: center;
+        font-size: 22px;
+        font-weight: 700;
+        color: #c0c0c0;
+        border-bottom: 2px solid #555;
+        letter-spacing: 1px;
+    }
+    .container {
+        max-width: 750px;
+        width: 92%;
+        background: rgba(0,0,0,0.8);
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 0 15px rgba(192,192,192,0.25);
+        margin: 20px 0;
+    }
+    input, button, select, textarea {
+        width: 100%;
+        padding: 10px;
+        margin: 8px 0;
+        border-radius: 6px;
+        border: none;
+        font-size: 15px;
+        box-sizing: border-box;
+    }
+    input, select, textarea {
+        border: 2px solid #666;
+        background: #111;
+        color: #e0e0e0;
+    }
+    input:focus, select:focus, textarea:focus {
+        outline: none;
+        border-color: #aaa;
+        box-shadow: 0 0 6px #aaa;
+    }
+    button {
+        background: linear-gradient(45deg, #444, #222);
+        color: #f0f0f0;
+        cursor: pointer;
+        font-weight: 600;
+        border: 1px solid #666;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 8px #888;
+    }
+    .tool-item {
+        background: rgba(20,20,20,0.9);
+        padding: 12px;
+        margin: 8px 0;
+        border-radius: 6px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border: 1px solid #444;
+    }
+    .tool-actions button {
+        margin-left: 8px;
+        padding: 5px 8px;
+        font-size: 13px;
+    }
+    #modal {
+        display: none;
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(0,0,0,0.95);
+        justify-content: center;
+        align-items: center;
+        color: #fff;
+        padding: 20px;
+        box-sizing: border-box;
+    }
+    #modalContent {
+        background: #111;
+        padding: 20px;
+        border-radius: 10px;
+        max-width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
+        border: 1px solid #555;
+    }
+    footer {
+        width: 100%;
+        padding: 12px;
+        background: rgba(0,0,0,0.85);
+        text-align: center;
+        font-size: 13px;
+        color: #777;
+        border-top: 2px solid #444;
+        margin-top: auto;
+    }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<header>ZT Tools Admin Panel</header>
+
+<div id="loading">⏳ Loading data...</div>
+
+<div id="loginBox" class="container" style="display:none;">
+    <h2>🔐 Admin Login</h2>
+    <input type="password" id="adminPass" placeholder="Enter Master Key...">
+    <button onclick="checkAdmin()">Unlock</button>
+</div>
+
+<div id="adminContent" class="container" style="display:none;">
+    <h2>👑 Welcome, ZT Admin</h2>
+    <button onclick="logout()">Logout</button>
+    <button onclick="resetOnboarding()">Reset User Onboarding</button>
+
+    <h3>📂 Manage Categories</h3>
+    <input type="text" id="newCategory" placeholder="Enter new category">
+    <button onclick="addCategory()">Add Category</button>
+
+    <h3>➕ Add Tool</h3>
+    <select id="categorySelect"></select>
+    <input type="text" id="toolName" placeholder="Tool or Lesson name">
+    <input type="text" id="toolLink" placeholder="Optional link (http://...)">
+    <textarea id="toolContent" placeholder="Optional lesson/steps"></textarea>
+    <button onclick="addTool()">Add Tool</button>
+
+    <h3>🛠 Manage Tools</h3>
+    <div id="toolsList"></div>
+</div>
+
+<div id="modal" onclick="closeModal()">
+    <div id="modalContent"></div>
+</div>
+
+<footer>
+    <p>ZT Tools Panel by Lord Zisky | 2025</p>
+</footer>
+
+<script>
+const BIN_ID = "68d55a16d0ea881f408aafef";    
+const API_KEY = "$2a$10$8MYvRfmBh5FodfOwEg/.vuPsQKggx5z5oD1QLlRCfRfD6396FnBP.";   
+const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+let binData = null;
+let isLoading = true;
+
+async function loadData() {
+    document.getElementById("loading").style.display="flex";
+    try {
+        let res = await fetch(BIN_URL,{headers:{"X-Master-Key":API_KEY}});
+        if(!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
+        let data = await res.json();
+        binData = data.record;
+        isLoading=false;
+        document.getElementById("loading").style.display="none";
+        document.getElementById("loginBox").style.display="block";
+    } catch(e) {
+        console.error("Load failed",e);
+        alert("❌ Failed to load data. Refresh page.");
+    }
+}
+
+function checkAdmin(){
+    if(isLoading){ alert("⏳ Loading data..."); return; }
+    let input = document.getElementById("adminPass").value.trim();
+    if(input===binData.keys.admin){
+        document.getElementById("loginBox").style.display="none";
+        document.getElementById("adminContent").style.display="block";
+        renderCategoryOptions();
+        renderTools();
+    } else { alert("❌ Wrong master key!"); }
+}
+
+function logout(){
+    document.getElementById("adminContent").style.display="none";
+    document.getElementById("loginBox").style.display="block";
+    document.getElementById("adminPass").value="";
+}
+
+function resetOnboarding(){
+    localStorage.removeItem("zt_onboarding");
+    alert("✅ Onboarding reset for all users.");
+}
+
+function renderCategoryOptions(){
+    let select = document.getElementById("categorySelect");
+    select.innerHTML="";
+    binData.categories.forEach(cat=>{
+        let option=document.createElement("option");
+        option.value=cat.name;
+        option.textContent=cat.name;
+        select.appendChild(option);
+    });
+}
+
+async function addCategory(){
+    let name=document.getElementById("newCategory").value.trim();
+    if(!name) return alert("Enter category name");
+    if(binData.categories.some(c=>c.name===name)) return alert("Category exists");
+    binData.categories.push({name:name,tools:[]});
+    await saveData("✅ Category added!");
+    document.getElementById("newCategory").value="";
+    renderCategoryOptions();
+    renderTools();
+}
+
+async function addTool(){
+    let catName=document.getElementById("categorySelect").value;
+    let name=document.getElementById("toolName").value.trim();
+    let link=document.getElementById("toolLink").value.trim();
+    let content=document.getElementById("toolContent").value.trim();
+    if(!name) return alert("Enter tool name");
+    if(!link && !content) return alert("Enter link or content");
+    let category=binData.categories.find(c=>c.name===catName);
+    if(category.tools.some(t=>t.name===name)) return alert("Tool exists already");
+    category.tools.push({name:name,link:link,content:content});
+    await saveData("✅ Tool added!");
+    document.getElementById("toolName").value="";
+    document.getElementById("toolLink").value="";
+    document.getElementById("toolContent").value="";
+    renderTools();
+}
+
+function renderTools(){
+    let container=document.getElementById("toolsList");
+    container.innerHTML="";
+    binData.categories.forEach(cat=>{
+        let catHeader=document.createElement("h4");
+        catHeader.textContent=cat.name;
+        container.appendChild(catHeader);
+
+        cat.tools.forEach((t,i)=>{
+            let div=document.createElement("div");
+            div.className="tool-item";
+
+            let name=document.createElement("span");
+            name.textContent=t.name;
+
+            let actions=document.createElement("div");
+            actions.className="tool-actions";
+
+            let openBtn=document.createElement("button");
+            openBtn.textContent="Open";
+            openBtn.onclick=()=>{
+                if(t.link) window.open(t.link,"_blank");
+                else if(t.content) showContent(t.content);
+                else alert("⚠️ No content");
+            };
+
+            let editBtn=document.createElement("button");
+            editBtn.textContent="✏️ Edit";
+            editBtn.onclick=()=>editTool(cat.name,i);
+
+            let delBtn=document.createElement("button");
+            delBtn.textContent="🗑 Delete";
+            delBtn.onclick=()=>deleteTool(cat.name,i);
+
+            actions.appendChild(openBtn);
+            actions.appendChild(editBtn);
+            actions.appendChild(delBtn);
+
+            div.appendChild(name);
+            div.appendChild(actions);
+            container.appendChild(div);
+        });
+    });
+}
+
+function showContent(content){
+    document.getElementById("modalContent").textContent=content;
+    document.getElementById("modal").style.display="flex";
+}
+
+function closeModal(){
+    document.getElementById("modal").style.display="none";
+}
+
+async function editTool(catName,index){
+    let category=binData.categories.find(c=>c.name===catName);
+    let tool=category.tools[index];
+    let newName=prompt("Enter new name:",tool.name);
+    let newLink=prompt("Enter new link:",tool.link);
+    let newContent=prompt("Enter new content:",tool.content);
+    if(!newName) return;
+    tool.name=newName;
+    tool.link=newLink||"";
+    tool.content=newContent||"";
+    await saveData("✅ Tool updated!");
+    renderTools();
+}
+
+async function deleteTool(catName,index){
+    if(!confirm("Are you sure?")) return;
+    let category=binData.categories.find(c=>c.name===catName);
+    category.tools.splice(index,1);
+    await saveData("✅ Tool deleted!");
+    renderTools();
+}
+
+async function saveData(msg){
+    try{
+        await fetch(BIN_URL,{
+            method:"PUT",
+            headers:{
+                "Content-Type":"application/json",
+                "X-Master-Key":API_KEY
+            },
+            body:JSON.stringify(binData)
+        });
+        alert(msg);
+    }catch(e){
+        alert("❌ Update failed: "+e.message);
+    }
+}
+
+loadData();
+</script>
+</body>
+</html>
